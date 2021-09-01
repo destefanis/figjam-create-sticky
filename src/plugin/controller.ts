@@ -30,6 +30,7 @@ const flatten = obj => {
 figma.ui.onmessage = async msg => {
   // Load our fonts first, load your own brand fonts here.
   await figma.loadFontAsync({ family: "Inter", style: "Medium" });
+  let nodes = [];
 
   if (msg.type === "run-app") {
     // If nothing's selected, we tell the UI to keep the empty state.
@@ -55,6 +56,7 @@ figma.ui.onmessage = async msg => {
   // When a button is clicked
   if (msg.type === "button-clicked") {
     const selection = figma.currentPage.selection;
+    // We use x and y so all the notes dont stack on top of our selection.
     let x = selection[0].x;
     let y = selection[0].y;
 
@@ -68,6 +70,7 @@ figma.ui.onmessage = async msg => {
       selection.map(selected => convertParagraph(selected, x, y));
     }
 
+    // Top option in the UI to convert text layers into sticky notes.
     async function convertToSticky(node, index, x, y) {
       if (node.type === "TEXT") {
         index = index + 1;
@@ -76,8 +79,10 @@ figma.ui.onmessage = async msg => {
         newSticky.x = x + index * 260;
         newSticky.y = y + 200;
         newSticky.text.characters = node.characters;
+        nodes.push(newSticky);
 
         setTimeout(function() {
+          figma.currentPage.selection = nodes;
           figma.ui.postMessage({
             type: "complete",
             message: "complete"
@@ -88,6 +93,8 @@ figma.ui.onmessage = async msg => {
       }
     }
 
+    // Bottom option in the UI to split paragraphs into individual lines
+    // and turn those lines into sticky notes.
     async function convertParagraph(node, x, y) {
       if (node.type === "TEXT") {
         let textToConvert = [];
@@ -112,6 +119,9 @@ figma.ui.onmessage = async msg => {
               newSticky.x = x + stackXAxis;
               newSticky.y = y + 260;
               newSticky.text.characters = string;
+
+              // Add the new sticky to an array of nodes to be selected.
+              nodes.push(newSticky);
             }
           }
         });
@@ -123,10 +133,16 @@ figma.ui.onmessage = async msg => {
           newSticky.x = x + stackXAxis;
           newSticky.y = y + 260;
           newSticky.text.characters = trimSentence;
+
+          // Add the new sticky to an array of nodes to be selected.
+          nodes.push(newSticky);
         });
       }
 
       setTimeout(function() {
+        // Select the new sticky notes we've created.
+        figma.currentPage.selection = nodes;
+        // Tell the plugin we're done!
         figma.ui.postMessage({
           type: "complete",
           message: "complete"
